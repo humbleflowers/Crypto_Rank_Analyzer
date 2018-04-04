@@ -63,11 +63,12 @@ def coin_compare_data_updater(ri, clist, l):
 #    exit(1)
 
 
-    cell_list = wk1.range(2,2,l+1,2) #'[ row col start, row col end]' B2:B1000
+    cell_list = wk1.range(2,2,1000,2) #'[ row col start, row col end]' B2:B1000
     for cell in range(len(cell_list)):
         cell_list[cell].value = ''
     wk1.update_cells(cell_list)
 
+    cell_list = wk1.range(2,2,l+1,2) #'[ row col start, row col end]' B2:B1000
     
     for cell in range(len(cell_list)):
         cell_list[cell].value = clist[cell][0]
@@ -128,11 +129,15 @@ def data_migrate(x):
 #            cell_list2.append('')
             if len(cell_list2) > len(cell_list1):
                 d = len(cell_list2) - len(cell_list1)
-                cell_list1+= cell_list1 + ['']*d
+                l1 = len(cell_list1) + d + 2
+                cell_list1 = wk.range(3,ri+1+i+c,l1,ri+1+i+c) #(start,end)
             elif len(cell_list1) > len(cell_list2):
-                d = len(cell_list1) - len(cell_list2)
-                cell_list2 += cell_list2 + [''] * d
+                d = len(cell_list1) - len(cell_list2) + 2
+                cell_list2 = cell_list2 + ['']*d 
                 
+                
+            print (len(cell_list1))
+            print (len(cell_list2))
                 
             for cell in range(len(cell_list1)):
                 cell_list1[cell].value = cell_list2[cell]
@@ -194,7 +199,7 @@ def data_timer():
         time.sleep(5)
         print ('-> dashboard started')
         dashboard_data_updater(ri)
-        print ('========')
+        print ('==Waiting===')
         time.sleep(1800)
     x = 0    
     while True:
@@ -202,7 +207,8 @@ def data_timer():
         data_migrate(x)
         print ('========')
         print ('data migrated')
-        print ('========')
+        print ('===Waiting====')
+        
         time.sleep(1600)
 
 data_timer()

@@ -6,7 +6,7 @@ Created on Mon Feb 19 22:21:12 2018
 @author: yaniv.kusuma@gmail.com
 """
 
-import json, urllib3, time
+import json, time
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -24,7 +24,15 @@ def data_updater(ri, clist, l, c):
             cell_list[cell].value = ''
         wk.update_cells(cell_list)
         for cell in range(len(cell_list)):
-            cell_list[cell].value = clist[cell][i]
+            if i == 1:
+                if clist[cell][i] == '':
+                    cell_list[cell].value = clist[cell][i]
+                if clist[cell][i] != '':
+                    cell_list[cell].value = int(clist[cell][i])
+                    
+            if i == 0:
+                cell_list[cell].value = clist[cell][i]
+
         wk.update_cells(cell_list)
         
 def add_new_coin(new_coins):
@@ -52,16 +60,8 @@ def coin_compare_data_updater(ri, clist, l):
     scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name('Cryptoweigh_key.json', scope)
     client = gspread.authorize(creds)
-    sh1 = client.open('Rank Analysis')
-#    ls = sh1.worksheets()
-#    print (ls[6])
-#    exit(1)    
+    sh1 = client.open('Rank Analysis')  
     wk1 = sh1.worksheet('API-Coincompare')
-
-#    wk1 = sh1.get_worksheet(6)
-#    print (wk1)
-#    exit(1)
-
 
     cell_list = wk1.range(2,2,1000,2) #'[ row col start, row col end]' B2:B1000
     for cell in range(len(cell_list)):
@@ -140,9 +140,17 @@ def data_migrate(x):
             print (len(cell_list2))
                 
             for cell in range(len(cell_list1)):
-                cell_list1[cell].value = cell_list2[cell]
+                if i == 1:
+                    if cell_list2[cell] != '':
+                        cell_list1[cell].value = int(cell_list2[cell])
+                    if cell_list2[cell] == '':
+                        cell_list1[cell].value = cell_list2[cell]
+                        
+                else:
+                    cell_list1[cell].value = cell_list2[cell]
+                    
             wk.update_cells(cell_list1)
-    ri = 30; c = 31
+    ri = 30; c = 31 #30,31
     for i in [0,1]:
         cell_list1 = wk.range(3,ri+1+i+c,l,ri+1+i+c) #(start,end)
         for cell in range(len(cell_list1)):
@@ -156,7 +164,7 @@ def last_column_data(x):
     clist = []
     for stat in data:
         if stat['market_cap_usd'] and stat['24h_volume_usd'] and float(stat['24h_volume_usd']) > 50000.0000 :
-            clist.append([stat['name'],stat['rank']])
+            clist.append([stat['name'],int(stat['rank']), stat['percent_change_24h']])
     l = len(clist)
     ri = 30  #30
     c= 31   #31
@@ -170,27 +178,103 @@ def last_column_data(x):
     print (x)
     print ('migrated dashboard')
     dashboard_data_updater(dc+x)
+    time.sleep(4)
+    get_top_coins(clist, dc+x)
+
+def get_top_coins(clist,ri):
+    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('Cryptoweigh_key.json', scope)
+    client = gspread.authorize(creds)
+    sh = client.open('Rank Analysis')
+    wk = sh.worksheet('Data Analysis')
+    abscoindata = []; relcoindata =[]
+    coinname = wk.col_values(1)[1:]
+    abscoinscore = wk.col_values(10)[1:]
+    relcoinscore = wk.col_values(11)[1:]
+    print abscoinscore
+    abscoinscore = [float(c) for c in abscoinscore]
+    relcoinscore = [float(c) for c in relcoinscore]
+    for i in range(len(abscoinscore)):
+        abscoindata.append((coinname[i],abscoinscore[i]))
+    print abscoindata
+    for i in range(len(relcoinscore)):
+        relcoindata.append((coinname[i],relcoinscore[i]))    
+    abscoindata = sorted(abscoindata, key=lambda x: x[1])
+#    print coinname, coinscore
+    relcoindata = sorted(relcoindata, key=lambda x: x[1])
+#    print '*****'
+#    print abscoindata
+#    print '*****'
+    abscoindata = abscoindata[-10:][::-1]
+    relcoindata = relcoindata[-10:][::-1]
+#    print '$$$'
+#    print abscoindata
+#    print relcoindata
+#    print '$$$'
+    if abscoindata != []  and relcoindata!= []:
+        abscoindata = [c[0] for c in abscoindata]
+        relcoindata = [c[0] for c in relcoindata]
+    abs_top_10(abscoindata,ri)
+    rel_top_10(relcoindata,ri)
+#    exit(1)
+
+def abs_top_10(abscoindata,ri):
+    print '===='
+    print abscoindata
+    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('Cryptoweigh_key.json', scope)
+    client = gspread.authorize(creds)
+    sh = client.open('Rank Analysis')
+    wk = sh.worksheet('Absolute Top 10')
+    if abscoindata != []:
+        cell_list = wk.range(2+ri,3,2+ri,12)
+        print cell_list
+        for cell in range(len(abscoindata)):
+            cell_list[cell].value = abscoindata[cell]
+        wk.update_cells(cell_list)    
+        
+def rel_top_10(relcoindata,ri):
+    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('Cryptoweigh_key.json', scope)
+    client = gspread.authorize(creds)
+    sh = client.open('Rank Analysis')
+    wk = sh.worksheet('Relative Top 10')
+    if relcoindata != []:
+        cell_list = wk.range(2+ri,3,2+ri,12)
+        
+        for cell in range(len(relcoindata)):
+            cell_list[cell].value = relcoindata[cell]
+        wk.update_cells(cell_list)     
     
-import requests    
+    
+
+import requests
 def data_timer():    
     print ('data analysis update started')
     c = 0
-    for ri in range(0,31):  #0,31
-
+    for ri in range(0,31): #0,31
         c+=1
+        ini_data_run(ri,c)
+    final_data_run()
+        
+def ini_data_run(ri,c):
+    
+    try:
+    
         clist = []
         data = requests.get('https://api.coinmarketcap.com/v1/ticker/?limit=3000')
-#        print (data.text)
+    #        print (data.text)
         data = json.loads(data.text)
-
+    
         for stat in data:
-
+    
             if stat['market_cap_usd'] and stat['24h_volume_usd'] and float(stat['24h_volume_usd']) > 50000.0000 :
-
-                clist.append([stat['name'],stat['rank']])
-
+    
+                clist.append([stat['name'],int(stat['rank']), stat['percent_change_24h']])
+    
         l = len(clist)
-        print (l)
+    #    print (l)
+    #    print clist
         print ('run %s' %str(ri))
         print ('-> coincompare started')
         coin_compare_data_updater(ri, clist, l)
@@ -200,15 +284,23 @@ def data_timer():
         print ('-> dashboard started')
         dashboard_data_updater(ri)
         print ('==Waiting===')
-        time.sleep(1800)
-    x = 0    
-    while True:
-        x +=1        
+        time.sleep(5)
+        get_top_coins(clist,ri)
+        time.sleep(600)
+    except:
+        ini_data_run(ri,c)
+#        
+    
+def final_data_run():    
+    try:            
+        x = 0    
+        while True:
+            x +=1        
+            data_migrate(x)
+            print ('========')
+            print ('data migrated')
+            print ('===Waiting====')
+            time.sleep(500)
+    except:
         data_migrate(x)
-        print ('========')
-        print ('data migrated')
-        print ('===Waiting====')
-        
-        time.sleep(1600)
-
 data_timer()
